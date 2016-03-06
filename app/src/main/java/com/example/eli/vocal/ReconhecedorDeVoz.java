@@ -4,10 +4,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
-import android.support.v7.app.AppCompatActivity;
-import android.widget.ArrayAdapter;
-import android.widget.Toast;
-
 import java.util.ArrayList;
 
 /**
@@ -15,10 +11,12 @@ import java.util.ArrayList;
  */
 public class ReconhecedorDeVoz extends Activity {
     private static final int REQUEST_CODE = 1234;
+    private EventoAcessibilidade eventoAcessibilidade;
 
     @Override
     public void onCreate(Bundle savedInstanceState){
         super.onCreate(savedInstanceState);
+        eventoAcessibilidade = EventoAcessibilidade.getInstance();
         reconhecer();
     }
 
@@ -37,7 +35,7 @@ public class ReconhecedorDeVoz extends Activity {
         {
             ArrayList<String> resultados = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS);
-            Toast.makeText(ReconhecedorDeVoz.this, resultados.get(0), Toast.LENGTH_SHORT).show();
+            eventoAcessibilidade.retornoReconhecimento(resultados.get(0));
         }
         super.onActivityResult(requestCode, resultCode, data);
         this.finish();
