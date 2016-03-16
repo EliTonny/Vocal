@@ -35,7 +35,8 @@ public class ReconhecedorDeVoz extends Activity {
         {
             ArrayList<String> resultados = data.getStringArrayListExtra(
                     RecognizerIntent.EXTRA_RESULTS);
-            eventoAcessibilidade.retornoReconhecimento(resultados.get(0));
+            //eventoAcessibilidade.retornoReconhecimento(resultados.get(0));
+            eventoAcessibilidade.setFraseRetorno(resultados.get(0));
         }
         super.onActivityResult(requestCode, resultCode, data);
         this.finish();
