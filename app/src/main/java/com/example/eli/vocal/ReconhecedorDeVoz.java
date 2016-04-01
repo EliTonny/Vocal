@@ -40,5 +40,6 @@ public class ReconhecedorDeVoz extends Activity {
         }
         super.onActivityResult(requestCode, resultCode, data);
         this.finish();
+
     }
 }

@@ -2,10 +2,12 @@ package com.example.eli.vocal;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.AccessibilityServiceInfo;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
-import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.HashMap;
@@ -24,11 +26,14 @@ public class EventoAcessibilidade extends AccessibilityService {
     private final int ACAO_HOME    = 5;
     private final int ACAO_VOLTAR  = 6;
     private final int ACAO_BOTAO   = 7;
+    private final int ACAO_ESCREVA = 8;
+    private final int ACAO_TESTE   = 9;
 
     //Constantes de tipo de componentes de tela
     private final String BOTAO         = "android.widget.Button";
     private final String EDIT_TEXT     = "android.widget.EditText";
     private final String SWITCH        = "android.widget.Switch";
+    private final String IMAGE_VIEW    = "android.widget.ImageView";
 
     private static EventoAcessibilidade eventoAcessibilidade;
 
@@ -107,6 +112,17 @@ public class EventoAcessibilidade extends AccessibilityService {
         //Acoes para pressionar botoes
         acoes.put("Botão",ACAO_BOTAO);
         acoes.put("botão",ACAO_BOTAO);
+
+        //Acoes para escrever em campos de texto
+        acoes.put("Escreva",ACAO_ESCREVA);
+        acoes.put("escreva",ACAO_ESCREVA);
+        acoes.put("Escrever",ACAO_ESCREVA);
+        acoes.put("escrever",ACAO_ESCREVA);
+        acoes.put("Escreve",ACAO_ESCREVA);
+        acoes.put("escreve",ACAO_ESCREVA);
+
+        acoes.put("Teste",ACAO_TESTE);
+        acoes.put("teste",ACAO_TESTE);
     }
 
     @Override
@@ -117,7 +133,7 @@ public class EventoAcessibilidade extends AccessibilityService {
 
         switch (tipoEvento){
             case AccessibilityEvent.TYPE_TOUCH_EXPLORATION_GESTURE_START:
-                speaker.speak("Estou ouvindo", TextToSpeech.QUEUE_FLUSH, null);
+                //speaker.speak("Estou ouvindo", TextToSpeech.QUEUE_FLUSH, null);
                 //System.out.println("toString: " + event.toString());
 
                 //Iniciar intent para ouvir o usuario
@@ -181,7 +197,7 @@ public class EventoAcessibilidade extends AccessibilityService {
         //Dividir a frase dita pelo usuario para encontrar a acao solicitada
         String[] frase = retorno.split(" ");
         String sujeito = frase[frase.length -1];
-        int acao = 0;
+        int acao;
         try{
             //Encontrar o agrupador da palavra de acao
             acao = acoes.get(frase[0]);
@@ -221,7 +237,7 @@ public class EventoAcessibilidade extends AccessibilityService {
                 break;
             case ACAO_TOQUE:
                 if (nodeInfo != null){
-                    executaAcao(nodeInfo, sujeito, null);
+                    executaAcao(nodeInfo, sujeito, null, AccessibilityNodeInfo.ACTION_CLICK, null);
                 }
                 break;
             case ACAO_HOME:
@@ -247,10 +263,26 @@ public class EventoAcessibilidade extends AccessibilityService {
                 view2.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,KeyEvent.KEYCODE_BACK));
                 view2.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,KeyEvent.KEYCODE_BACK));*/
                 System.out.println(nodeInfo.toString());
-                nodeInfo.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,new Bundle());
+                //nodeInfo.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT,new Bundle());
                 break;
             case ACAO_BOTAO:
-                executaAcao(nodeInfo, sujeito, BOTAO);
+                executaAcao(nodeInfo, sujeito, BOTAO,AccessibilityNodeInfo.ACTION_CLICK, null);
+                break;
+            case ACAO_ESCREVA:
+
+                //Montar frase a ser escrita pelo Vocal
+                String fraseEditText = "";
+                for (int i = 1;i < frase.length - 1;i++){
+                    fraseEditText = fraseEditText.concat(frase[i]).concat(" ");
+                }
+
+                ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipData clip = ClipData.newPlainText("label", fraseEditText);
+                clipboard.setPrimaryClip(clip);
+                executaAcao(nodeInfo, sujeito, EDIT_TEXT, AccessibilityNodeInfo.ACTION_PASTE, null);
+                break;
+            case ACAO_TESTE:
+                executaAcao(nodeInfo, sujeito, IMAGE_VIEW, AccessibilityNodeInfo.ACTION_CLICK, null);
                 break;
             default:
                 speaker.speak("Desculpe, não entendi", TextToSpeech.QUEUE_FLUSH, null);
@@ -322,10 +354,12 @@ public class EventoAcessibilidade extends AccessibilityService {
     }
 
     private String getTextoClasse(AccessibilityNodeInfo nodeInfo){
-        String className = nodeInfo.getClassName().toString();
-        if (className == null){
+        if (nodeInfo.getClassName() == null){
             return "";
         }
+
+        String className = nodeInfo.getClassName().toString();
+
         if (className.equalsIgnoreCase(BOTAO)){
             return "botão ";
         } else if (className.equalsIgnoreCase(EDIT_TEXT)){
@@ -336,12 +370,15 @@ public class EventoAcessibilidade extends AccessibilityService {
         return "";
     }
 
-    private void executaAcao(AccessibilityNodeInfo nodeInfo, String sujeito, String tipoComponente){
+    private void executaAcao(AccessibilityNodeInfo nodeInfo, String sujeito, String tipoComponente, int action, Bundle arguments){
         sujeito = converteNumeral(sujeito);
-        List<AccessibilityNodeInfo> nos = nodeInfo.findAccessibilityNodeInfosByText(sujeito);
-        AccessibilityNodeInfo no = null;
         System.out.println(sujeito);
+        List<AccessibilityNodeInfo> nos = nodeInfo.findAccessibilityNodeInfosByText(sujeito);
+        System.out.println(sujeito);
+        AccessibilityNodeInfo no = null;
+
         if (nos != null){
+            //System.out.println("tamanos nos: " + nos.size());
             for (int i = 0; i < nos.size();i++) {
                 System.out.println(nos.get(i).toString());
             }
@@ -355,10 +392,14 @@ public class EventoAcessibilidade extends AccessibilityService {
                     }
                 }
 
+                for (int i = 0; i < nos.size();i++) {
+                    System.out.println(nos.get(i).toString());
+                }
+
                 //Se a busca na tela encontrar apenas um no, ele sofrera a acao
-                if (nos.size() == 1){
+                //if (nos.size() == 1){
                     no = nos.get(0);
-                } else {
+                /*} else {
                     //Se a busca na tela encontrar mais de um no, eh preciso selecionar o no que tem o
                     // texto exatamente igual ao sujeito
                     for (int i = 0; i < nos.size();i++) {
@@ -367,16 +408,28 @@ public class EventoAcessibilidade extends AccessibilityService {
                             i = nos.size();
                         }
                     }
-                }
-
-                if (no.isClickable()){
-                    no.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                }*/
+                if (no != null){
+                    if (arguments == null){
+                        no.performAction(action);
+                    } else {
+                        //System.out.println(no.performAction(action, arguments));
+                        /*ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        ClipData clip = ClipData.newPlainText("label", "Por favor xesus");
+                        clipboard.setPrimaryClip(clip);
+                        no.performAction(AccessibilityNodeInfo.ACTION_PASTE);*/
+                    }
+                } else {
+                    System.out.println("no null");
                 }
             }catch (IndexOutOfBoundsException indexEx) {
                 speaker.speak("Não encontrei na tela " + sujeito, TextToSpeech.QUEUE_FLUSH, null);
             } catch (Exception ex){
                 speaker.speak("Erro de tela desconhecido", TextToSpeech.QUEUE_FLUSH, null);
+                //System.out.println(ex.getMessage());
             }
+        } else {
+            System.out.println("Nos null");
         }
     }
 }
