@@ -119,11 +119,11 @@ public class EventoAcessibilidade extends AccessibilityService {
                 startActivity(intent);
 
                 break;
-            case AccessibilityEvent.TYPE_VIEW_HOVER_ENTER:
-                break;
             case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
-                if (this.fraseRetorno != null && event.getSource() != null){
-                    this.retornoReconhecimento(fraseRetorno, event.getSource());
+                if (event.getSource() != null){
+                    if (this.fraseRetorno != null && (!event.getPackageName().equals("com.example.eli.vocal"))){
+                        this.retornoReconhecimento(fraseRetorno, event.getSource());
+                    }
                 }
                 break;
             default:
@@ -176,6 +176,8 @@ public class EventoAcessibilidade extends AccessibilityService {
                     textoTela = getTextoTela(nodeInfo);
                     System.out.println(textoTela);
                     speaker.speak(textoTela, TextToSpeech.QUEUE_FLUSH, null);
+                } else{
+                    System.out.println("null aqui");
                 }
                 break;
             case ACAO_FALA:
@@ -230,8 +232,17 @@ public class EventoAcessibilidade extends AccessibilityService {
                 executaAcao(nodeInfo, sujeito, IMAGE_VIEW, AccessibilityNodeInfo.ACTION_CLICK, null);
                 break;
             case ACAO_DISCAR:
-                System.out.println("passou aqui");
-                executaAcao(nodeInfo, sujeito, FRAME_LAYOUT, AccessibilityNodeInfo.ACTION_CLICK, null);
+                //executaAcao(nodeInfo, sujeito, FRAME_LAYOUT, AccessibilityNodeInfo.ACTION_CLICK, null);
+                String numeroDiscar = "";
+                for (int i = 1; i < frase.length; i++){
+                    numeroDiscar += converteNumeral(frase[i]);
+                }
+                char[] numeros = numeroDiscar.toCharArray();
+                executaAcao(nodeInfo, "espaço", BOTAO, AccessibilityNodeInfo.ACTION_LONG_CLICK, null);
+                for (int i = 0; i < numeros.length; i++){
+                    executaAcao(nodeInfo, String.valueOf(numeros[i]), FRAME_LAYOUT, AccessibilityNodeInfo.ACTION_CLICK, null);
+                }
+                executaAcao(nodeInfo, "discar", BOTAO, AccessibilityNodeInfo.ACTION_CLICK, null);
                 break;
             default:
                 speaker.speak("Desculpe, não entendi", TextToSpeech.QUEUE_FLUSH, null);
@@ -297,6 +308,8 @@ public class EventoAcessibilidade extends AccessibilityService {
             return "9";
         } else if ("zero".equalsIgnoreCase(numero)){
             return "0";
+        } else if ("asterisco".equalsIgnoreCase(numero)){
+            return "*";
         }
 
         return numero;
@@ -332,26 +345,6 @@ public class EventoAcessibilidade extends AccessibilityService {
                 System.out.println(nos.get(i).toString());
             }
             try{
-                /*if (tipoComponente != null){
-                    System.out.println("Cp: " + tipoComponente);
-                    //Remover os nos que nao sao da classe desejada pela acao
-                    for (int i = 0; i < nos.size();i++) {
-                        System.out.println("Entrou no loop de filtro ");
-                        //if (!tipoComponente.equalsIgnoreCase(nos.get(i).getClassName().toString())){
-                        if (!(nos.get(i).getClassName().toString().contains(tipoComponente))){
-                            nos.remove(i);
-                        } else {
-                            System.out.println("Aceitando: " + nos.get(i).getClassName().toString() + " Cp: " + tipoComponente);
-                        }
-                    }
-                }*/
-
-                System.out.println("Depois de filtrar-------");
-
-                for (int i = 0; i < nos.size();i++) {
-                    System.out.println(nos.get(i).toString());
-                }
-
                 no = nos.get(0);
 
                 if (no != null){
@@ -363,8 +356,6 @@ public class EventoAcessibilidade extends AccessibilityService {
                 }
             }catch (IndexOutOfBoundsException indexEx) {
                 speaker.speak("Não encontrei na tela " + sujeito, TextToSpeech.QUEUE_FLUSH, null);
-                System.out.println("Nao encontrou na tela");
-                System.out.println(nodeInfo.toString());
             } catch (Exception ex){
                 speaker.speak("Erro de tela desconhecido", TextToSpeech.QUEUE_FLUSH, null);
             }
