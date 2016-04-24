@@ -16,7 +16,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Created by Eli on 2/13/2016.
+ * Author: Eli T. de Souza
+ * Date: 13/02/2016.
+ * Resume: Classe principal
  */
 public class EventoAcessibilidade extends AccessibilityService {
     //Constantes de acao
@@ -30,10 +32,16 @@ public class EventoAcessibilidade extends AccessibilityService {
     private final int ACAO_ESCREVA = 8;
     private final int ACAO_BUSCAR  = 9;
     private final int ACAO_DISCAR  = 10;
+    private final int ACAO_ROLAR   = 11;
+    private final int ACAO_LETRA   = 12;
+    private final int ACAO_COLAR   = 13;
+    private final int ACAO_LIMPAR  = 14;
+    private final int ACAO_TESTE   = 99;
 
     //Constantes de tipo de componentes de tela
     private final String BOTAO         = "Button";
     private final String EDIT_TEXT     = "EditText";
+    private final String TEXT          = "Text";
     private final String SWITCH        = "Switch";
     private final String IMAGE_VIEW    = "ImageView";
     private final String FRAME_LAYOUT  = "FrameLayout";
@@ -41,6 +49,7 @@ public class EventoAcessibilidade extends AccessibilityService {
     private static EventoAcessibilidade eventoAcessibilidade;
 
     private String fraseRetorno;
+    private String textoBuffer;
     private TextToSpeech speaker;
     private HashMap<String,Integer> acoes;
 
@@ -59,6 +68,7 @@ public class EventoAcessibilidade extends AccessibilityService {
         eventoAcessibilidade = this;
         inicializaAcoes();
         fraseRetorno = null;
+        textoBuffer = "";
     }
 
     private void inicializaAcoes(){
@@ -101,9 +111,21 @@ public class EventoAcessibilidade extends AccessibilityService {
         acoes.put("escrever",ACAO_ESCREVA);
         acoes.put("escreve",ACAO_ESCREVA);
 
+        //Acoes para buscar conversar no Whatsapp
         acoes.put("buscar", ACAO_BUSCAR);
 
+        //Acoes para digitar telefones no teclado
         acoes.put("discar", ACAO_DISCAR);
+
+        //Acoes para rolar a tela
+        acoes.put("rolar", ACAO_ROLAR);
+        acoes.put("ir", ACAO_ROLAR);
+
+        acoes.put("letra", ACAO_LETRA);
+        acoes.put("colar", ACAO_COLAR);
+        acoes.put("limpar", ACAO_LIMPAR);
+
+        acoes.put("teste", ACAO_TESTE);
     }
 
     @Override
@@ -112,12 +134,15 @@ public class EventoAcessibilidade extends AccessibilityService {
         //System.out.println(event.eventTypeToString(event.getEventType()) + " Source:" + (event.getSource() == null));
         switch (tipoEvento){
             case AccessibilityEvent.TYPE_TOUCH_EXPLORATION_GESTURE_START:
+                if (speaker.isSpeaking()){
+                    speaker.stop();
+                }
+
                 //Iniciar intent para ouvir o usuario
                 Intent intent = new Intent();
                 intent.setClass(this, ReconhecedorDeVoz.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-
                 break;
             case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
                 if (event.getSource() != null){
@@ -142,6 +167,7 @@ public class EventoAcessibilidade extends AccessibilityService {
 
     @Override
     public void onServiceConnected() {
+        //Parametros de inicializacao
         AccessibilityServiceInfo info = new AccessibilityServiceInfo();
         info.flags = AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS|AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS|AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE;
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_SPOKEN;
@@ -153,7 +179,6 @@ public class EventoAcessibilidade extends AccessibilityService {
 
     public void retornoReconhecimento(String retorno, AccessibilityNodeInfo nodeInfo){
         if(retorno == null){
-            System.out.println("Retorno null");
             return;
         }
 
@@ -171,13 +196,12 @@ public class EventoAcessibilidade extends AccessibilityService {
         //Determinar o que fazer na acao solicitada
         switch (acao){
             case ACAO_LEITURA:
+                //Ler todos os textos da tela
                 if (nodeInfo != null){
                     String textoTela = "";
                     textoTela = getTextoTela(nodeInfo);
                     System.out.println(textoTela);
                     speaker.speak(textoTela, TextToSpeech.QUEUE_FLUSH, null);
-                } else{
-                    System.out.println("null aqui");
                 }
                 break;
             case ACAO_FALA:
@@ -189,6 +213,7 @@ public class EventoAcessibilidade extends AccessibilityService {
                 speaker.speak(fraseSolicitada, TextToSpeech.QUEUE_FLUSH, null);
                 break;
             case ACAO_DESLIGA:
+                //Tornar a aplicacao inativa
                 if ("Vocal".equalsIgnoreCase(sujeito)){
                     AccessibilityServiceInfo info = new AccessibilityServiceInfo();
                     info.flags = AccessibilityServiceInfo.DEFAULT;
@@ -202,10 +227,11 @@ public class EventoAcessibilidade extends AccessibilityService {
                 break;
             case ACAO_TOQUE:
                 if (nodeInfo != null){
-                    executaAcao(nodeInfo, sujeito, null, AccessibilityNodeInfo.ACTION_CLICK, null);
+                    executaAcao(nodeInfo, sujeito, null, AccessibilityNodeInfo.ACTION_CLICK, null, false);
                 }
                 break;
             case ACAO_HOME:
+                //Ir para o home
                 Intent startMain = new Intent(Intent.ACTION_MAIN);
                 startMain.addCategory(Intent.CATEGORY_HOME);
                 startMain.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -214,7 +240,7 @@ public class EventoAcessibilidade extends AccessibilityService {
             case ACAO_VOLTAR:
                 break;
             case ACAO_BOTAO:
-                executaAcao(nodeInfo, sujeito, BOTAO, AccessibilityNodeInfo.ACTION_CLICK, null);
+                executaAcao(nodeInfo, sujeito, BOTAO, AccessibilityNodeInfo.ACTION_CLICK, null, false);
                 break;
             case ACAO_ESCREVA:
                 //Montar frase a ser escrita pelo Vocal
@@ -226,23 +252,74 @@ public class EventoAcessibilidade extends AccessibilityService {
                 ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                 ClipData clip = ClipData.newPlainText("label", fraseEditText);
                 clipboard.setPrimaryClip(clip);
-                executaAcao(nodeInfo, sujeito, EDIT_TEXT, AccessibilityNodeInfo.ACTION_PASTE, null);
+                executaAcao(nodeInfo, sujeito, TEXT, AccessibilityNodeInfo.ACTION_FOCUS, null, true);
+                executaAcao(nodeInfo, sujeito, TEXT, AccessibilityNodeInfo.ACTION_PASTE, null, true);
                 break;
             case ACAO_BUSCAR:
-                executaAcao(nodeInfo, sujeito, IMAGE_VIEW, AccessibilityNodeInfo.ACTION_CLICK, null);
+                executaAcao(nodeInfo, sujeito, IMAGE_VIEW, AccessibilityNodeInfo.ACTION_CLICK, null, false);
                 break;
             case ACAO_DISCAR:
-                //executaAcao(nodeInfo, sujeito, FRAME_LAYOUT, AccessibilityNodeInfo.ACTION_CLICK, null);
                 String numeroDiscar = "";
                 for (int i = 1; i < frase.length; i++){
                     numeroDiscar += converteNumeral(frase[i]);
                 }
                 char[] numeros = numeroDiscar.toCharArray();
-                executaAcao(nodeInfo, "espaço", BOTAO, AccessibilityNodeInfo.ACTION_LONG_CLICK, null);
+                executaAcao(nodeInfo, "espaço", BOTAO, AccessibilityNodeInfo.ACTION_LONG_CLICK, null, false);
                 for (int i = 0; i < numeros.length; i++){
-                    executaAcao(nodeInfo, String.valueOf(numeros[i]), FRAME_LAYOUT, AccessibilityNodeInfo.ACTION_CLICK, null);
+                    if (numeros[i] != '-' && numeros[i] != ' '){
+                        executaAcao(nodeInfo, String.valueOf(numeros[i]), FRAME_LAYOUT, AccessibilityNodeInfo.ACTION_CLICK, null, false);
+                    }
                 }
-                executaAcao(nodeInfo, "discar", BOTAO, AccessibilityNodeInfo.ACTION_CLICK, null);
+                executaAcao(nodeInfo, "discar", BOTAO, AccessibilityNodeInfo.ACTION_CLICK, null, false);
+                break;
+            case ACAO_ROLAR:
+                List<AccessibilityNodeInfo> nos = encontraNoScrollable(nodeInfo, null);
+
+                if (nos.size() > 0){
+                    for (int i = 0; i < nos.size(); i++){
+                        if("frente".equalsIgnoreCase(sujeito)){
+                            nos.get(i).performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+                        } else if ("trás".equalsIgnoreCase(sujeito)){
+                            nos.get(i).performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+                        }
+                    }
+                }
+                break;
+            case ACAO_LETRA:
+                //Concatenar a primeira letra da primeira palavra na variavel de memoria
+                if (frase.length > 1){
+                    speaker.speak(frase[1], TextToSpeech.QUEUE_FLUSH, null);
+                    frase[1] = converteNumeral(frase[1]);
+                    frase[1] = convertePontuacao(frase[1]);
+                    char[] palavra = frase[1].toCharArray();
+                    textoBuffer = textoBuffer.concat(String.valueOf(palavra[0]).toLowerCase());
+                }
+                break;
+            case ACAO_LIMPAR:
+                //Limpar a variavel de memoria
+                if ("tudo".equalsIgnoreCase(sujeito)){
+                    textoBuffer = "";
+                } else if ("letra".equalsIgnoreCase(sujeito)){
+                    if (textoBuffer.length() > 0){
+                        textoBuffer = textoBuffer.substring(0,textoBuffer.length() - 1);
+                    }
+                }
+                break;
+            case ACAO_COLAR:
+                //Colar o texto em memoria em um campo de texto da tela
+                ClipboardManager clipboardColar = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                ClipData clipColar = ClipData.newPlainText("label", textoBuffer);
+                clipboardColar.setPrimaryClip(clipColar);
+                executaAcao(nodeInfo, sujeito, TEXT, AccessibilityNodeInfo.ACTION_FOCUS, null, true);
+                executaAcao(nodeInfo, sujeito, TEXT, AccessibilityNodeInfo.ACTION_PASTE, null, true);
+                break;
+            case ACAO_TESTE:
+                /*Bundle arguments = new Bundle();
+                arguments.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_MOVEMENT_GRANULARITY_INT,
+                                 AccessibilityNodeInfo.MOVEMENT_GRANULARITY_CHARACTER);
+                arguments.putBoolean(AccessibilityNodeInfo.ACTION_ARGUMENT_EXTEND_SELECTION_BOOLEAN,
+                        false);
+                executaAcao(nodeInfo, sujeito, null, AccessibilityNodeInfo.ACTION_NEXT_AT_MOVEMENT_GRANULARITY,arguments);*/
                 break;
             default:
                 speaker.speak("Desculpe, não entendi", TextToSpeech.QUEUE_FLUSH, null);
@@ -283,7 +360,6 @@ public class EventoAcessibilidade extends AccessibilityService {
                 textoRetorno += getTextoTela(nodeInfo.getChild(i));
             }
         }
-
         return textoRetorno;
     }
 
@@ -315,6 +391,27 @@ public class EventoAcessibilidade extends AccessibilityService {
         return numero;
     }
 
+    private String convertePontuacao(String sinal){
+        if ("ponto".equalsIgnoreCase(sinal)){
+            return ".";
+        } else if ("exclamação".equalsIgnoreCase(sinal)){
+            return "!";
+        } else if ("interrogação".equalsIgnoreCase(sinal)){
+            return "?";
+        } else if ("arroba".equalsIgnoreCase(sinal)){
+            return "@";
+        } else if ("sustenido".equalsIgnoreCase(sinal)){
+            return "#";
+        } else if ("percentual".equalsIgnoreCase(sinal)){
+            return "%";
+        } else if ("traço".equalsIgnoreCase(sinal)){
+            return "-";
+        } else if ("vírgula".equalsIgnoreCase(sinal)){
+            return ",";
+        }
+        return sinal;
+    }
+
     private String getTextoClasse(AccessibilityNodeInfo nodeInfo){
         if (nodeInfo.getClassName() == null){
             return "";
@@ -332,11 +429,11 @@ public class EventoAcessibilidade extends AccessibilityService {
         return "";
     }
 
-    private void executaAcao(AccessibilityNodeInfo nodeInfo, String sujeito, String tipoComponente, int action, Bundle arguments){
+    private void executaAcao(AccessibilityNodeInfo nodeInfo, String sujeito, String tipoComponente, int action, Bundle arguments, boolean focus){
         sujeito = converteNumeral(sujeito);
         System.out.println(sujeito);
         //List<AccessibilityNodeInfo> nos = nodeInfo.findAccessibilityNodeInfosByText(sujeito);
-        List<AccessibilityNodeInfo> nos = encontraNoTela(nodeInfo,sujeito, tipoComponente);
+        List<AccessibilityNodeInfo> nos = encontraNoTela(nodeInfo, sujeito, tipoComponente);
         System.out.println(sujeito);
         AccessibilityNodeInfo no = null;
 
@@ -345,13 +442,24 @@ public class EventoAcessibilidade extends AccessibilityService {
                 System.out.println(nos.get(i).toString());
             }
             try{
-                no = nos.get(0);
+                if (focus){
+                    //Executar a acao no primeiro no focusable
+                    for (int i = 0; i < nos.size();i++) {
+                        if (nos.get(i).isFocusable()){
+                            no = nos.get(i);
+                            i = nos.size();
+                        }
+                    }
+                } else {
+                    //Executar a acao no primeiro no encontrado
+                    no = nos.get(0);
+                }
 
                 if (no != null){
                     if (arguments == null){
                         no.performAction(action);
                     } else {
-                        no.performAction(action, arguments);
+                        System.out.println(no.performAction(action, arguments));
                     }
                 }
             }catch (IndexOutOfBoundsException indexEx) {
@@ -359,8 +467,6 @@ public class EventoAcessibilidade extends AccessibilityService {
             } catch (Exception ex){
                 speaker.speak("Erro de tela desconhecido", TextToSpeech.QUEUE_FLUSH, null);
             }
-        } else {
-            System.out.println("Nos null");
         }
     }
 
@@ -373,13 +479,13 @@ public class EventoAcessibilidade extends AccessibilityService {
         }
 
         if (nodeInfo.getChildCount() > 0) {
+            //Adicionar os nos com o texto procurado no ArrayList de nos
             for (int i = 0; i < nodeInfo.getChildCount(); i++) {
                 textoNo = "";
                 if (nodeInfo.getChild(i) != null){
                     if (nodeInfo.getChild(i).getText() != null){
                         textoNo += nodeInfo.getChild(i).getText().toString();
                     }
-
                     if (nodeInfo.getChild(i).getContentDescription() != null){
                         textoNo += nodeInfo.getChild(i).getContentDescription().toString();
                     }
@@ -395,12 +501,38 @@ public class EventoAcessibilidade extends AccessibilityService {
                             nos.add(nodeInfo.getChild(i));
                         }
                     }
-
+                    //Buscar os demais nos relacionados com o texto solicitado recursivamente
                     nos.addAll(encontraNoTela(nodeInfo.getChild(i),texto, tipoComponente));
                 }
             }
         }
+        return nos;
+    }
 
+    private List<AccessibilityNodeInfo> encontraNoScrollable(AccessibilityNodeInfo nodeInfo, String tipoComponente){
+        List<AccessibilityNodeInfo> nos = new ArrayList<>();
+        if (nodeInfo == null){
+            return nos;
+        }
+
+        if (nodeInfo.getChildCount() > 0) {
+            //Adicionar todos os nos scrollable no ArrayList de nos
+            for (int i = 0; i < nodeInfo.getChildCount(); i++) {
+                if (nodeInfo.getChild(i) != null){
+                    if (nodeInfo.getChild(i).isScrollable()){
+                        if (tipoComponente == null){
+                            System.out.println("Add no: " + nodeInfo.getChild(i).toString());
+                            nos.add(nodeInfo.getChild(i));
+                        } else if (nodeInfo.getChild(i).getClassName().toString().contains(tipoComponente)){
+                            System.out.println("Add no: " + nodeInfo.getChild(i).toString());
+                            nos.add(nodeInfo.getChild(i));
+                        }
+                    }
+                    //Buscar recursivamente os demais nos scrollable relacionados
+                    nos.addAll(encontraNoScrollable(nodeInfo.getChild(i), tipoComponente));
+                }
+            }
+        }
         return nos;
     }
 }
